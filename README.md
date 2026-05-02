@@ -1,18 +1,22 @@
-# Capture The Flag 
-> Командные соревнования в области информационной безопасности
+# Capture The Flag
 
-**Основные темы:**
-- веб-безопасность
-- реверс-инжиниринг и эксплуатация бинарных программ
-- криптография
-- сетевая безопасность
+> Team competitions in information security – find and capture the "flag".
 
-**Задания выполнены в формате task-based CTF**:  
+**Main topics:**
+- Web security
+- Reverse engineering & binary exploitation
+- Cryptography
+- Network security
 
-в каждом задании есть один или несколько **«флагов»**, выполняющих роль ценных данных, которые требуется найти и украсть атакующему. Для выполнения задания необходимо получить флаг и сдать его в принимающую систему. За каждый сданный флаг начисляются очки.  
+**Tasks are in task‑based CTF format:**  
+Each task contains one or more **flags** – valuable data that the attacker must find and steal.  
+To complete a task, you obtain the flag and submit it to the scoring system.  
+Each submitted flag gives points.
 
-> **Флаг** представляет собой строку, которая может состоять из цифр и букв английского алфавита, а также нижних подчёркиваний (`_`).
-> Решения написаны **на быструю руку** сразу после выполнения заданий  
-> Код может быть не самым элегантным, но он рабочий
+> **Flag format:** a string consisting of digits, English alphabet letters, and underscores (`_`).
+
+> [!IMPORTANT]
+> Solutions were written **quickly** right after solving the tasks.  
+> The code may not be the most elegant, but it works.
 
 
