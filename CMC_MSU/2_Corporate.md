@@ -1,4 +1,3 @@
-![corp](images/corp.png)
 > Corporate - http://corporate.tasks.prak.seclab.cs.msu.ru/
 
 ### Hm...  
