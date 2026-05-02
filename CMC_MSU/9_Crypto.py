@@ -3,7 +3,7 @@ import math
 import os
 
 def parse_ssh_pubkey(data):
-    # Извлекает n и e из строки публичного ключа OpenSSH (ssh-rsa)
+# Extracts n and e from the OpenSSH public key string (ssh-rsa)
     parts = data.strip().split()
     if len(parts) < 2 or parts[0] != 'ssh-rsa':
         return None, None
@@ -13,17 +13,17 @@ def parse_ssh_pubkey(data):
     except:
         return None, None
     pos = 0
-    # имя типа
+    # type name
     name_len = int.from_bytes(decoded[pos:pos+4], 'big')
     pos += 4
     name = decoded[pos:pos+name_len]
     pos += name_len
-    # экспонента
+    # exp
     e_len = int.from_bytes(decoded[pos:pos+4], 'big')
     pos += 4
     e = int.from_bytes(decoded[pos:pos+e_len], 'big')
     pos += e_len
-    # модуль
+    # mod abs
     n_len = int.from_bytes(decoded[pos:pos+4], 'big')
     pos += 4
     n = int.from_bytes(decoded[pos:pos+n_len], 'big')
@@ -40,29 +40,29 @@ def int_to_bytes(n, size=None):
     return b
 
 def encode_length(l):
-    #Кодирует длину для ASN.1 DER
+    #Encodes the length for ASN.1 DER
     if l < 0:
         raise ValueError("Negative length")
     if l < 128:
         return bytes([l])
-    # длинная форма
+    # long form
     len_bytes = l.to_bytes((l.bit_length() + 7) // 8, 'big')
     return bytes([0x80 | len(len_bytes)]) + len_bytes
 
 def encode_integer(x):
     """Кодирует целое в ASN.1 INTEGER."""
     b = int_to_bytes(x)
-    # если старший бит установлен, добавляем ведущий 0x00
+    # if the highest bit is set, add the leading 0x00
     if b[0] & 0x80:
         b = b'\x00' + b
     return b'\x02' + encode_length(len(b)) + b
 
 def generate_private_key_pem(n, e, d, p, q):
-    #Генерирует закрытый ключ RSA в формате PEM
+    #Generates an RSA private key in PEM format
     exp1 = d % (p-1)
     exp2 = d % (q-1)
     coeff = pow(q, -1, p)
-    # ASN.1 SEQUENCE из 9 INTEGER
+    # ASN.1 SEQUENCE from 9 INTEGER
     seq_parts = [
         encode_integer(0),   # version
         encode_integer(n),
@@ -76,7 +76,7 @@ def generate_private_key_pem(n, e, d, p, q):
     ]
     seq = b''.join(seq_parts)
     der = b'\x30' + encode_length(len(seq)) + seq
-    # PEM обёртка
+    # PEM wrapper
     pem = b'-----BEGIN RSA PRIVATE KEY-----\n'
     b64_der = base64.b64encode(der).decode('ascii')
     for i in range(0, len(b64_der), 64):
@@ -101,7 +101,7 @@ def main():
 
     print(f"Загружено {len(keys)} публичных ключей.")
 
-    # Поиск пары с общим множителем
+    # Search for a pair with a common multiplier
     for i in range(len(keys)):
         n1, e1, fname1 = keys[i]
         for j in range(i+1, len(keys)):
@@ -112,7 +112,7 @@ def main():
                 p = g
                 q = n1 // p
                 phi = (p-1)*(q-1)
-                # Вычисляем d = e^{-1} mod φ
+                # Calculate d = e^{-1} mod φ
                 d = pow(e1, -1, phi)
                 pem = generate_private_key_pem(n1, e1, d, p, q)
                 with open('private_key.pem', 'wb') as out:
