@@ -59,4 +59,4 @@ You can make sure that the record has been added.:
 ' UNION SELECT NULL, request_text, NULL FROM corporate_employee_requests WHERE employee_name='hacker' -- -
 ```
 
-A flag has arrived on the webhook 🎉
+A flag has arrived on the webhook! 🎉
