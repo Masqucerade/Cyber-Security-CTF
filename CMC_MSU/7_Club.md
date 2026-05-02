@@ -1,4 +1,3 @@
-![club](images/club.png)
 > Club - http://club.tasks.prak.seclab.cs.msu.ru/
 
 ### Hm...
