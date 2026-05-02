@@ -30,7 +30,7 @@ def nth_root(x, e):
             hi = mid
     return lo
 
-# Загрузка ключей и шифротекстов
+# Downloading keys and ciphertexts
 n_list, c_list = [], []
 for i in range(1, 6):
     with open(f"{i}.pub.pem") as f:
@@ -40,7 +40,7 @@ for i in range(1, 6):
     with open(f"{i}.enc", "rb") as f:
         c_list.append(int.from_bytes(f.read(), 'big'))
 
-# CRT и корень
+# CRT and sqrt
 x, _ = crt(c_list[:e], n_list[:e])
 m = nth_root(x, e)
 flag = long_to_bytes(m).decode()
