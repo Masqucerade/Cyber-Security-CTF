@@ -1,4 +1,3 @@
-![pwn](images/pwn.png)  
 > Pwnitter - http://pwnitter.tasks.prak.seclab.cs.msu.ru/
 
 > [!TIP]
