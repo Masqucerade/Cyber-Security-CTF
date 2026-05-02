@@ -1,42 +1,66 @@
-## Восстановление закрытого ключа SSH через коллизию модулей RSA
+## SSH private key recovery via RSA modulus collision
 
-Нам предоставлено 1000 публичных SSH-ключей (RSA), сгенерированных на компьютере с низкой энтропией. Из-за этого некоторые ключи могут иметь общий простой
-множитель, что позволяет разложить модуль на множители и восстановить закрытый
-ключ. Цель получить доступ к компьютеру в сети по SSH
+**Attack name:** GCD factorization – shared prime due to low entropy
 
+We are given 1000 public SSH keys (RSA) generated on a machine with low entropy.  
+Because of this, some keys may share a common prime factor, allowing us to factor the modulus and recover the private key.  
+Goal: SSH access to a machine on the network.
 
+---
 
-RSA использует модуль `n = p*q`,  
-p,q - большие прочтые числа  
-Если два разных модуля n1 n2 имеют общий множитель p, то
-`gcd(n1, n2) = p`
+### Background
 
-зная p находим `q = n1/p`, затем `phi = (p-1)(q-1)` и закрытую экспоненту `d = e^(-1)` mod phi.
+RSA modulus: `n = p * q`, where `p` and `q` are large primes.  
+If two different moduli `n1` and `n2` share a common factor `p`, then:
 
-Собрав параметры, можно сгенерировать закрытый ключ ..........
+```
+gcd(n1, n2) = p
+```
 
+Once we have `p`, we compute `q = n1 / p`, then `φ = (p-1)*(q-1)`, and finally the private exponent `d = e^(-1) mod φ`.  
+With these parameters we can generate a private key in PEM format.
 
-1) Подготовка данных
-Публичные ключи находятся в папке keys и названы `id_rsa_0` ... `id_rsa_999` Каждый файл содержит одну строку в формате OpenSSH, например:
+---
 
-`ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD...`
+### Steps
 
+**1. Prepare the data**  
+Public keys are in the folder `keys/`, named `id_rsa_0` … `id_rsa_999`.  
+Each file contains one line in OpenSSH format, e.g.:
 
-2) Извлечение модулей и экспонент
-Напишем скрипт на Python, который:
+```
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD...
+```
 
-Читает все файлы
-Парсит публичный ключ, извлекая модуль n и экспоненту e
-Сохраняет их в список
+**2. Extract moduli and exponents**  
+Write a Python script that:
+- Reads all files
+- Parses each public key to extract `n` (modulus) and `e` (exponent)
+- Stores them in a list
 
-3) Поиск коллизии
-Попарно вычисляем НОД для всех пар. Если gcd > 1 найдена коллизия
+**3. Find collisions**  
+Compute GCD for every pair. If `gcd > 1`, a collision is found.
 
-4) Вычисление закрытого ключа
-Для найденной пары вычисляем:
-`p = gcd(n1, n2), q = n1/p, затем phi = (p-1)(q-1) и d = e^(-1) mod phi`
-Собираем полученный закрытый ключ в формате `PKCS#1 (PEM)`
+**4. Recover the private key**  
+For the colliding pair:
+```
+p = gcd(n1, n2)
+q = n1 // p
+φ = (p-1)*(q-1)
+d = pow(e, -1, φ)
+```
+Then assemble the private key in PKCS#1 PEM format.
 
-5) Подключение по SSH
-Используем полученный закрытый ключ для входа на указанный хост
+**5. SSH connection**  
+Use the recovered private key to log into the target host.
 
+---
+
+**4. Connect via SSH**
+```bash
+ssh -i private_key.pem user@target_host
+```
+
+> [!NOTE]
+> This attack works when the random number generator is weak, causing repeated primes.  
+> It is also known as the "GCD attack" or "common prime factor attack".
