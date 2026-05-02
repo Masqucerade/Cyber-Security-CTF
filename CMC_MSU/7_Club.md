@@ -65,8 +65,9 @@ By clicking through I found the `G` entry, or:
 ```
 " OR 1=1 LIMIT 647,1 #
 ```
-→ Also works.
+→ Also works
 
 
 
 🎉 **Flag received on the webhook!**
+ 
