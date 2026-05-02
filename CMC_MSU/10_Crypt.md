@@ -8,7 +8,7 @@
 ### Solution
 
 **1. Extract public keys**
-From `*.pub.pem` files, obtain moduli `n_i` and exponent `e`.
+From `*.pub.pem` files, obtain moduli `n_i` and exponent `e`
 
 **2. Read ciphertexts**
 Read `*.enc` files as binary and convert to integers `c_i`.
