@@ -1,5 +1,7 @@
 ### Pwnitter - http://pwnitter.tasks.prak.seclab.cs.msu.ru/
 
+![pwn](./Cyber-Security-CTF/CMC_MSU/images/pwn.png)
+
 Если отправить сообщение `script>alert(1)</script>` и зайти в мессэдж - выходит
 модальное окно с алертом.  
 ==> Значит выполняется то, что я отправляю  
